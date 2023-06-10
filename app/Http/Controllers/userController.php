@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Session;
 
@@ -34,7 +35,7 @@ class userController extends Controller
         $user=user::where(['email'=>$req->email])->first();
         if($user && Hash::check($req->password,$user->password)){
             $req->session()->put('user',$user);
-            if($user->is_admin)
+            if($user->admin)
                 return redirect()->route('admin.panel');
 
             return redirect()->route('home');
@@ -44,7 +45,7 @@ class userController extends Controller
             return view('login', ['error'=>'ایمیل یا رمز عبور اشتباه است']);
         }
     }
-
+ 
     //____________________ exit account
     function logout(){
         Session::forget('user');
@@ -56,12 +57,17 @@ class userController extends Controller
         $user_id=Session::get('user')['id'];
 
         $req->validate([
-            'username'=>'regex:/(^([a-zA-z0-9 آ-ی]+)(\d+)?$)/u ',
-            'email'=>'unique:users| email'
+            'fname'=>'regex:/(^([a-zA-z0-9 آ-ی]+)(\d+)?$)/u |nullable',
+            'lname'=>'regex:/(^([a-zA-z0-9 آ-ی]+)(\d+)?$)/u |nullable',
+            'email'=>'unique:users| email |nullable'
         ]);
 
-        if($req->username){
-            User::where('id',$user_id)->update(['name'=>$req->username]);
+        if($req->fname){
+            User::where('id',$user_id)->update(['fname'=>$req->fname]);
+        }
+
+        if($req->lname){
+            User::where('id',$user_id)->update(['lname'=>$req->lname]);
         }
 
         if($req->email){
@@ -71,7 +77,7 @@ class userController extends Controller
         return redirect()->route('user.panel')->with('success_message','تغییرات موردنظر با موفیقت انجام شد✅');
     }
 
-    //____________________ Edit User Info
+    //____________________ Edit User password
     function edit_password(Request $req){
         $req->validate([
             'oldpswd'=>'required',
@@ -80,11 +86,21 @@ class userController extends Controller
         ]);
 
         $user_id=Session::get('user')['id'];
-        $old_pass=Hash::check($req->oldpswd , user::where('id',$user_id)->first());
+        $old_pass=Hash::check($req->oldpswd , user::where('id',$user_id)->first()->password);
+        
+        
         if($old_pass){
-            user::where('id',$user_id)->update(['password',Hash::make($req->newpswd)]);
+            user::where('id',$user_id)->update(['password'=>Hash::make($req->newpswd)]);
             return redirect()->route('user.panel')->with('success_message','رمز عبور شما با موفقیت تغییر کرد ✅');
         }
         return redirect()->route('user.panel')->with('error_message','رمز عبور شما اشتباه است❗');
+    }
+
+     //________________________________________ User Panel
+     function user_panel(){
+        $user_id=Session::get('user')['id'];
+     
+        $user_info=User::where('id' , $user_id)->first();
+        return view('user-panel' , [ 'info'=>$user_info]);
     }
 }
